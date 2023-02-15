@@ -4,7 +4,7 @@ from pytorch_metric_learning.losses import NTXentLoss, CrossBatchMemory
 from pytorch_metric_learning.reducers import BaseReducer
 from torch.utils.data import DataLoader
 import time
-from dataset import SHREC22_Rings_RenderOnly_TextQuery
+from dataset import SHREC23_Rings_RenderOnly_TextQuery
 from models import Base3DObjectRingsExtractor, BertExtractor, MLP
 
 class PerModality(BaseReducer):
@@ -40,7 +40,7 @@ cbm_object = CrossBatchMemory(contra_loss, latent_dim, 128)
 optimizer1 = torch.optim.Adam(obj_embedder.parameters(), lr=0.00001, weight_decay=0.0001)
 optimizer2 = torch.optim.Adam(query_embedder.parameters(), lr=0.00001, weight_decay=0.0001)
 
-train_ds = SHREC22_Rings_RenderOnly_TextQuery(
+train_ds = SHREC23_Rings_RenderOnly_TextQuery(
         'data/train.csv', 'data/ANIMAR_Preliminary_Data/generated_models', 'data/ANIMAR_Preliminary_Data/Sketch_Query', [0, 1, 2])
 
 dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=4, collate_fn=train_ds.collate_fn)

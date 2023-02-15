@@ -13,8 +13,8 @@ os.environ[
 ] = "true"  # https://github.com/huggingface/transformers/issues/5486
 
 __all__ = [
-    'SHREC22_Rings_RenderOnly_ImageQuery',
-    'SHREC22_Rings_RenderOnly_TextQuery',
+    'SHREC23_Rings_RenderOnly_ImageQuery',
+    'SHREC23_Rings_RenderOnly_TextQuery',
 ]
 
 def DatasetItemInfo(item, indent=0):
@@ -126,7 +126,7 @@ class BaseShrecDataset(data.Dataset):
     def collate_fn(self, batch):
         raise NotImplementedError
 
-class SHREC22_Rings_RenderOnly_ImageQuery(BaseShrecDataset):
+class SHREC23_Rings_RenderOnly_ImageQuery(BaseShrecDataset):
     def __getitem__(self, i):
         data = self.data[i]['render']
         query_impath = self.skt_filenames[i]
@@ -155,7 +155,7 @@ class SHREC22_Rings_RenderOnly_ImageQuery(BaseShrecDataset):
 
 
 
-class SHREC22_Rings_RenderOnly_TextQuery(BaseShrecDataset):
+class SHREC23_Rings_RenderOnly_TextQuery(BaseShrecDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -193,16 +193,16 @@ class SHREC22_Rings_RenderOnly_TextQuery(BaseShrecDataset):
 if __name__ == '__main__':
 
     print('='*80)
-    ds = SHREC22_Rings_RenderOnly_ImageQuery(
+    ds = SHREC23_Rings_RenderOnly_ImageQuery(
         'data/train.csv', 'data/ANIMAR_Preliminary_Data/generated_models', 'data/ANIMAR_Preliminary_Data/Sketch_Query', [0, 1, 2])
     print('='*80)
-    ds2 = SHREC22_Rings_RenderOnly_TextQuery(
+    ds2 = SHREC23_Rings_RenderOnly_TextQuery(
         'data/train.csv', 'data/ANIMAR_Preliminary_Data/generated_models', 'data/ANIMAR_Preliminary_Data/Sketch_Query', [0, 1, 2])
     print('='*80)
-    ds = SHREC22_Rings_RenderOnly_ImageQuery(
+    ds = SHREC23_Rings_RenderOnly_ImageQuery(
         'data/test.csv', 'data/ANIMAR_Preliminary_Data/generated_models', 'data/ANIMAR_Preliminary_Data/Sketch_Query', [0, 1, 2])
     print('='*80)
-    ds2 = SHREC22_Rings_RenderOnly_TextQuery(
+    ds2 = SHREC23_Rings_RenderOnly_TextQuery(
         'data/test.csv', 'data/ANIMAR_Preliminary_Data/generated_models', 'data/ANIMAR_Preliminary_Data/Sketch_Query', [0, 1, 2])
     
     print('='*80)

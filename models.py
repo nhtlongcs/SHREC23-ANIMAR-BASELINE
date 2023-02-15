@@ -156,9 +156,9 @@ class MLP(nn.Module):
     
 if __name__ == "__main__":
     from dataset import *
-    ds = SHREC22_Rings_RenderOnly_ImageQuery(
+    ds = SHREC23_Rings_RenderOnly_ImageQuery(
         'data/train.csv', 'data/ANIMAR_Preliminary_Data/generated_models', 'data/ANIMAR_Preliminary_Data/Sketch_Query', [0, 1, 2])
-    ds2 = SHREC22_Rings_RenderOnly_TextQuery(
+    ds2 = SHREC23_Rings_RenderOnly_TextQuery(
         'data/train.csv', 'data/ANIMAR_Preliminary_Data/generated_models', 'data/ANIMAR_Preliminary_Data/Sketch_Query', [0, 1, 2])
     dl = data.DataLoader(ds, batch_size=2, collate_fn=ds.collate_fn)
     dl2 = data.DataLoader(ds2, batch_size=2, collate_fn=ds2.collate_fn)
