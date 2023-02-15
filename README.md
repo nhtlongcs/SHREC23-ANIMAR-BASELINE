@@ -1,6 +1,6 @@
 # SHREC23-ANIMAR-BASELINE
 
-A baseline for the SHREC23 ANIMAR challenge. See the [challenge website](https://shrec.iti.gr/2021/animar/) for more information.
+A baseline for the SHREC23 ANIMAR challenge. See the [challenge website](https://aichallenge.hcmus.edu.vn/) for more information.
 We already provide the baseline for [preliminary dataset](https://drive.google.com/file/d/1BYDCPkOa-s30aFUAr0h80N-t-Q7kDupQ/view). Other teams can use this baseline to test their methods on the official dataset.
 
 ## Download raw dataset
