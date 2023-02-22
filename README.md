@@ -35,7 +35,6 @@ id,obj_filename,sket_filename,tex
 
 [Update] We provide the prepared notebook in `data/preparation.ipynb` to help you prepare the dataset. 
 
-
 ```
 ./
 ├─ data/
@@ -60,8 +59,7 @@ id,obj_filename,sket_filename,tex
 │  │  │  ├─ *Train.csv
 ├─ ...
 ```
-
-## Capture ring views images
+## Capture ringview images
 
 We provide a script to capture the ring views images. The script uses Blender to render the images.
 This technique is described in [paper](https://diglib.eg.org/handle/10.2312/3dor20201163) to represent 3D models as images.
