@@ -41,7 +41,7 @@ optimizer1 = torch.optim.Adam(obj_embedder.parameters(), lr=0.00001, weight_deca
 optimizer2 = torch.optim.Adam(query_embedder.parameters(), lr=0.00001, weight_decay=0.0001)
 
 train_ds = SHREC23_Rings_RenderOnly_TextQuery(
-        'data/train.csv', 'data/ANIMAR_Preliminary_Data/generated_models', 'data/ANIMAR_Preliminary_Data/Sketch_Query', [0, 1, 2])
+        'data/csv/train_tex.csv', 'data/SketchANIMAR2023/3D_Model_References/generated_models', None, [1, 3, 5])
 
 dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=4, collate_fn=train_ds.collate_fn)
 start_time = time.time()
