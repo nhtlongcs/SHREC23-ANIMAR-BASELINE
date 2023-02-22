@@ -51,7 +51,7 @@ class BaseShrecDataset(data.Dataset):
         super().__init__()
         csv_data = pd.read_csv(csv_path)
         print(csv_data.head())
-
+        self.csv_data = csv_data
         self.obj_ids = csv_data['obj_filename']
         self.obj_ids = [x.split('.')[0] for x in self.obj_ids]
         self.skt_filenames = None if 'sket_filename' not in csv_data.columns else csv_data['sket_filename']
@@ -131,6 +131,8 @@ class BaseShrecDataset(data.Dataset):
 class SHREC23_Rings_RenderOnly_ImageQuery(BaseShrecDataset):
     def __getitem__(self, i):
         data = self.data[i]['render']
+        obj_id = self.csv_data.iloc[i]['obj_id']
+        skt_id = self.csv_data.iloc[i]['sketch_id']
         query_impath = self.skt_filenames[i]
         query_im = Image.open(os.path.join(self.skt_root, query_impath)).convert('RGB')
         query_im = self.render_transforms(query_im)
@@ -146,12 +148,16 @@ class SHREC23_Rings_RenderOnly_ImageQuery(BaseShrecDataset):
         return {
             "object_im": ims,
             "query_im": query_im,
+            "gallery_id": obj_id,
+            "query_id": skt_id,
         }
 
     def collate_fn(self, batch):
         batch_dict = {
             "object_ims": torch.stack([x['object_im'] for x in batch]),
             "query_ims": torch.stack([x['query_im'] for x in batch]),
+            "gallery_ids": [x['gallery_id'] for x in batch],
+            "query_ids": [x['query_id'] for x in batch],
         }
         return batch_dict
 
@@ -166,6 +172,8 @@ class SHREC23_Rings_RenderOnly_TextQuery(BaseShrecDataset):
     def __getitem__(self, i):
         query_text = self.tex[i]
         data = self.data[i]['render']
+        obj_id = self.csv_data.iloc[i]['obj_id']
+        txt_id = self.csv_data.iloc[i]['text_id']
         ims = torch.cat([
             torch.cat([
                 self.render_transforms(
@@ -179,14 +187,17 @@ class SHREC23_Rings_RenderOnly_TextQuery(BaseShrecDataset):
         return {
             "object_im": ims,
             "query_text": query_text,
+            "gallery_id": obj_id,
+            "query_id": txt_id,
         }
     
     def collate_fn(self, batch):
         batch_dict = {
             "object_ims": torch.stack([x['object_im'] for x in batch]),
             "query_texts": [x['query_text'] for x in batch],
+            "gallery_ids": [x['gallery_id'] for x in batch],
+            "query_ids": [x['query_id'] for x in batch],
         }
-
         batch_dict["tokens"] = self.tokenizer.batch_encode_plus(
             batch_dict["query_texts"], padding="longest", return_tensors="pt"
         )
