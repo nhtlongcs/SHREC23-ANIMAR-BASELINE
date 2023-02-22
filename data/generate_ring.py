@@ -36,10 +36,9 @@ class Config:
     device = 'GPU'
     center = True
 
-    # output_name = 'generated_{}/'.format(phase)
     output_name = 'generated_models/'
     start = 0
-    bounding = 30
+    bounding = -1
     rings = [0, 1, 2, 3, 4, 5, 6]
 
     shader_type = 'default'  # 'gray'
