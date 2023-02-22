@@ -27,11 +27,40 @@ The resulting directory tree should look like this:
 
 We provide the `Text_Query.xlsx` file to help you understand the dataset. The `Sketch_Query` directory contains the sketches of the queries. The `3D_Models` directory contains the 3D models of the reference obj models. 
 
-Create your own train/test split, we provide a simple example in `data/train.csv` and `data/test.csv`. 
+Create your own train/test split, we provide a simple example in `data/csv/train_preliminary.csv` and `data/test_preliminary.csv`. 
 The csv files contain the names of the queries and the reference models. 
 ```csv
 id,obj_filename,sket_filename,tex
 ```
+
+[Update] We provide the prepared notebook in `data/preparation.ipynb` to help you prepare the dataset. 
+
+
+```
+./
+├─ data/
+│  ├─ ANIMAR_Preliminary_Data/
+│  │  ├─ 3D_Models/
+│  │  │  ├─ References/
+│  │  ├─ Text_Query.xlsx
+|
+│  ├─ TextANIMAR2023/
+│  │  ├─ 3D_Model_References/
+│  │  │  ├─ References/
+│  │  ├─ Train/
+│  │  │  ├─ *GT_Train.csv
+│  │  │  ├─ *Train.csv
+|
+│  ├─ SketchANIMAR2023/
+│  │  ├─ 3D_Model_References/
+│  │  │  ├─ References/
+│  │  ├─ Train/
+│  │  │  ├─ SketchQuery_Train/
+│  │  │  ├─ *GT_Train.csv
+│  │  │  ├─ *Train.csv
+├─ ...
+```
+
 ## Capture ring views images
 
 We provide a script to capture the ring views images. The script uses Blender to render the images.
