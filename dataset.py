@@ -54,8 +54,10 @@ class BaseShrecDataset(data.Dataset):
 
         self.obj_ids = csv_data['obj_filename']
         self.obj_ids = [x.split('.')[0] for x in self.obj_ids]
-        self.skt_filenames = csv_data['sket_filename']
-        self.tex = csv_data['tex']
+        self.skt_filenames = None if 'sket_filename' not in csv_data.columns else csv_data['sket_filename']
+        self.tex = None if 'tex' not in csv_data.columns else csv_data['tex']
+
+        assert self.skt_filenames is not None or self.tex is not None, 'Must provide either sketch or text'
 
         self.obj_root = root
         self.skt_root = skt_root
@@ -159,6 +161,7 @@ class SHREC23_Rings_RenderOnly_TextQuery(BaseShrecDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        
                  
     def __getitem__(self, i):
         query_text = self.tex[i]
