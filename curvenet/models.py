@@ -45,12 +45,12 @@ class Walk(nn.Module):
     '''
     Walk in the cloud
     '''
-    def __init__(self, in_channel, k, curve_num, curve_length):
+    def __init__(self, in_channel, k, curve_num, curve_length, device):
         super(Walk, self).__init__()
         self.curve_num = curve_num
         self.curve_length = curve_length
         self.k = k
-
+        self.device = device
         self.agent_mlp = nn.Sequential(
             nn.Conv2d(in_channel * 2,
                         1,
@@ -89,7 +89,7 @@ class Walk(nn.Module):
         x = x.transpose(1,2).contiguous() # bs, n, c
 
         flatten_x = x.view(bn * tot_points, -1)
-        batch_offset = torch.arange(0, bn, device=torch.device('cpu')).detach() * tot_points
+        batch_offset = torch.arange(0, bn, device=self.device).detach() * tot_points
 
         # indices of neighbors for the starting points
         tmp_adj = (adj + batch_offset.view(-1,1,1)).view(adj.size(0)*adj.size(1),-1) #bs, n, k
@@ -279,7 +279,7 @@ class LPFA(nn.Module):
     def __init__(self, in_channel, out_channel, k, mlp_num=2, initial=False):
         super(LPFA, self).__init__()
         self.k = k
-        self.device = torch.device('cpu')
+        self.device = torch.device('cuda:0')
         self.initial = initial
 
         if not initial:
@@ -339,12 +339,13 @@ class LPFA(nn.Module):
         return feature #bs, c, n, k
 
 class CIC(nn.Module):
-    def __init__(self, npoint, radius, k, in_channels, output_channels, bottleneck_ratio=2, mlp_num=2, curve_config=None):
+    def __init__(self, npoint, radius, k, in_channels, output_channels, device, bottleneck_ratio=2, mlp_num=2, curve_config=None):
         super(CIC, self).__init__()
         self.in_channels = in_channels
         self.output_channels = output_channels
         self.bottleneck_ratio = bottleneck_ratio
         self.radius = radius
+        self.device = device
         self.k = k
         self.npoint = npoint
 
@@ -353,7 +354,7 @@ class CIC(nn.Module):
         self.use_curve = curve_config is not None
         if self.use_curve:
             self.curveaggregation = CurveAggregation(planes)
-            self.curvegrouping = CurveGrouping(planes, k, curve_config[0], curve_config[1])
+            self.curvegrouping = CurveGrouping(planes, k, curve_config[0], curve_config[1], device)
 
         self.conv1 = nn.Sequential(
             nn.Conv1d(in_channels,
@@ -476,16 +477,17 @@ class CurveAggregation(nn.Module):
 
 
 class CurveGrouping(nn.Module):
-    def __init__(self, in_channel, k, curve_num, curve_length):
+    def __init__(self, in_channel, k, curve_num, curve_length, device):
         super(CurveGrouping, self).__init__()
         self.curve_num = curve_num
         self.curve_length = curve_length
         self.in_channel = in_channel
+        self.device = device
         self.k = k
 
         self.att = nn.Conv1d(in_channel, 1, kernel_size=1, bias=False)
 
-        self.walk = Walk(in_channel, k, curve_num, curve_length)
+        self.walk = Walk(in_channel, k, curve_num, curve_length, device)
 
     def forward(self, x, xyz, idx):
         # starting point selection in self attention style
@@ -545,26 +547,27 @@ curve_config = {
     }
 
 class CurveNet(nn.Module):
-    def __init__(self, num_classes=44, k=20, setting='default'):
+    def __init__(self, device, num_classes=44, k=20, setting='default'):
         super(CurveNet, self).__init__()
 
         assert setting in curve_config
 
         additional_channel = 32
+        self.device = device
         self.lpfa = LPFA(9, additional_channel, k=k, mlp_num=1, initial=True)
 
         # encoder
-        self.cic11 = CIC(npoint=1024, radius=0.05, k=k, in_channels=additional_channel, output_channels=64, bottleneck_ratio=2, mlp_num=1, curve_config=curve_config[setting][0])
-        self.cic12 = CIC(npoint=1024, radius=0.05, k=k, in_channels=64, output_channels=64, bottleneck_ratio=4, mlp_num=1, curve_config=curve_config[setting][0])
+        self.cic11 = CIC(npoint=1024, radius=0.05, k=k, in_channels=additional_channel, output_channels=64, bottleneck_ratio=2, mlp_num=1, curve_config=curve_config[setting][0],device=device)
+        self.cic12 = CIC(npoint=1024, radius=0.05, k=k, in_channels=64, output_channels=64, bottleneck_ratio=4, mlp_num=1, curve_config=curve_config[setting][0],device=device)
         
-        self.cic21 = CIC(npoint=1024, radius=0.05, k=k, in_channels=64, output_channels=128, bottleneck_ratio=2, mlp_num=1, curve_config=curve_config[setting][1])
-        self.cic22 = CIC(npoint=1024, radius=0.1, k=k, in_channels=128, output_channels=128, bottleneck_ratio=4, mlp_num=1, curve_config=curve_config[setting][1])
+        self.cic21 = CIC(npoint=1024, radius=0.05, k=k, in_channels=64, output_channels=128, bottleneck_ratio=2, mlp_num=1, curve_config=curve_config[setting][1],device=device)
+        self.cic22 = CIC(npoint=1024, radius=0.1, k=k, in_channels=128, output_channels=128, bottleneck_ratio=4, mlp_num=1, curve_config=curve_config[setting][1],device=device)
 
-        self.cic31 = CIC(npoint=256, radius=0.1, k=k, in_channels=128, output_channels=256, bottleneck_ratio=2, mlp_num=1, curve_config=curve_config[setting][2])
-        self.cic32 = CIC(npoint=256, radius=0.2, k=k, in_channels=256, output_channels=256, bottleneck_ratio=4, mlp_num=1, curve_config=curve_config[setting][2])
+        self.cic31 = CIC(npoint=256, radius=0.1, k=k, in_channels=128, output_channels=256, bottleneck_ratio=2, mlp_num=1, curve_config=curve_config[setting][2],device=device)
+        self.cic32 = CIC(npoint=256, radius=0.2, k=k, in_channels=256, output_channels=256, bottleneck_ratio=4, mlp_num=1, curve_config=curve_config[setting][2],device=device)
 
-        self.cic41 = CIC(npoint=64, radius=0.2, k=k, in_channels=256, output_channels=512, bottleneck_ratio=2, mlp_num=1, curve_config=curve_config[setting][3])
-        self.cic42 = CIC(npoint=64, radius=0.4, k=k, in_channels=512, output_channels=512, bottleneck_ratio=4, mlp_num=1, curve_config=curve_config[setting][3])
+        self.cic41 = CIC(npoint=64, radius=0.2, k=k, in_channels=256, output_channels=512, bottleneck_ratio=2, mlp_num=1, curve_config=curve_config[setting][3],device=device)
+        self.cic42 = CIC(npoint=64, radius=0.4, k=k, in_channels=512, output_channels=512, bottleneck_ratio=4, mlp_num=1, curve_config=curve_config[setting][3],device=device)
 
         self.conv0 = nn.Sequential(
             nn.Conv1d(512, 1024, kernel_size=1, bias=False),
@@ -574,8 +577,10 @@ class CurveNet(nn.Module):
         self.conv2 = nn.Linear(512, num_classes)
         self.bn1 = nn.BatchNorm1d(512)
         self.dp1 = nn.Dropout(p=0.5)
+        self.feature_dim = 2048
 
     def forward(self, xyz):
+
         l0_points = self.lpfa(xyz, xyz)
 
         l1_xyz, l1_points = self.cic11(xyz, l0_points)
@@ -600,7 +605,8 @@ class CurveNet(nn.Module):
         x = self.conv2(x)
         return x
 
-    def get_features(self, xyz):
+    def get_embedding(self, xyz):
+
         l0_points = self.lpfa(xyz, xyz)
 
         l1_xyz, l1_points = self.cic11(xyz, l0_points)
@@ -627,7 +633,7 @@ class CurveNet(nn.Module):
 if __name__ == "__main__":
     from dataset import PointCloudData
     ds = PointCloudData("data/ANIMAR_Preliminary_Data/3D_Models")
-    dl = data.DataLoader(ds, batch_size=20)
+    dl = data.DataLoader(ds, batch_size=4)
 
     device = "cpu"
     curvenet = CurveNet().to(device)
@@ -637,4 +643,5 @@ if __name__ == "__main__":
     print(inputs.shape)
 
     curvenet.train()
-    embed_output = curvenet(inputs)
+    embed_output = curvenet.get_embedding(inputs)
+    print(embed_output.shape)
