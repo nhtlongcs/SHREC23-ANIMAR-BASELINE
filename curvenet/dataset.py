@@ -1,17 +1,13 @@
+import os 
+from PIL import Image
 import random
 from pathlib import Path
-
+import pandas as pd 
 import numpy as np
-import sklearn.metrics as metrics
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from sklearn.metrics import confusion_matrix
-from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
+from torchvision import transforms as tvtf
 from torch.utils import data
 from torchvision import transforms
-from tqdm import tqdm
 
 
 class SimpleSampler:
@@ -111,6 +107,84 @@ class PointCloudData(data.Dataset):
                 # 'category': label,
                 'id': id,
             }
+class SHREC23_PointCloudData_ImageQuery(data.Dataset):
+    def __init__(self, obj_data_path, csv_data_path, skt_root, ids=None):
+        self.csv_data = pd.read_csv(csv_data_path)
+        self.skt_root = skt_root
+        self.ids = self.csv_data.index
+        self.obj_data_path = obj_data_path
+
+        # files = list(obj_data_path.glob("*.obj"))
+        # self.data = {
+        #     file.stem : {
+        #         "verts": read_obj(file)
+        #     }
+        #     for file in files
+        # }
+
+        # if ids is None:    
+        #     ids = self.data.keys()
+
+        # self.ids = ids
+        self.render_transforms = tvtf.Compose([
+                tvtf.CenterCrop((352, 352)),
+                tvtf.Resize((224, 224)),
+                tvtf.ToTensor(),
+                tvtf.Normalize(mean=[0.485, 0.456, 0.406],
+                               std=[0.229, 0.224, 0.225]),
+            ])
+    def __len__(self):
+        return len(self.ids)
+
+    def __getitem__(self, idx):
         
+        obj_id = self.csv_data.iloc[idx]['obj_id']
+        skt_id = self.csv_data.iloc[idx]['sketch_id']
+        points = read_obj(os.path.join(self.obj_data_path, obj_id + '.obj'))
+        points = np.array(points)
+        points = default_transforms()(points)
+        
+        query_impath = self.csv_data.iloc[idx]['sket_filename']
+        query_im = Image.open(os.path.join(self.skt_root, query_impath)).convert('RGB')
+        query_im = self.render_transforms(query_im)
+        
+        return {
+            "pointcloud": points,
+            "query_im": query_im,
+            "gallery_id": obj_id,
+            "query_id": skt_id,
+        }
+    def collate_fn(self, batch):
+        batch = {
+            'pointclouds': torch.stack([item['pointcloud'] for item in batch]),
+            'query_ims': torch.stack([item['query_im'] for item in batch]),
+            'gallery_ids': [item['gallery_id'] for item in batch],
+            'query_ids': [item['query_id'] for item in batch],
+        }
+        return batch
+
+def DatasetItemInfo(item, indent=0):
+    if isinstance(item, dict):
+        for k, v in item.items():
+            print(' ' * indent, k)
+            DatasetItemInfo(v, indent + 4)
+    elif isinstance(item, list):
+        for v in item:
+            DatasetItemInfo(v, indent + 4)
+    elif isinstance(item, torch.Tensor):
+        print(' ' * indent, item.shape, item.dtype, item.device)
+    else:
+        print(' ' * indent, item)
+
+def DatasetBatchInfo(batch):
+    for k, v in batch.items():
+        print(k)
+        DatasetItemInfo(v, 4)
+    print()
+
 if __name__ == "__main__":
-    dataset = PointCloudData("data/ANIMAR_Preliminary_Data/3D_Models")
+    dataset = SHREC23_PointCloudData_ImageQuery(obj_data_path='data/SketchANIMAR2023/3D_Model_References/References',
+                                                csv_data_path='data/csv/train_skt.csv',
+                                                skt_root='data/SketchANIMAR2023/Train/SketchQuery_Train')
+    print(len(dataset))
+    DatasetItemInfo(dataset[0])
