@@ -50,6 +50,7 @@ class BaseShrecDataset(data.Dataset):
                  vis=False):
         super().__init__()
         csv_data = pd.read_csv(csv_path)
+        print('Dataset path: ', csv_path)
         print(csv_data.head())
         self.csv_data = csv_data
         self.obj_ids = csv_data['obj_filename']
