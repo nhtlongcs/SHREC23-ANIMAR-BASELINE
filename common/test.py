@@ -3,19 +3,23 @@ import numpy as np
 from tqdm import tqdm
 import torch 
 from metrics import evaluate
+from typing import List
 
 def encode_labels(labels):
     unique_labels = np.unique(labels)
     label_to_id = {label: i for i, label in enumerate(unique_labels)}
     return [label_to_id[label] for label in labels]
+
 def print_results(results):
     for metric, value in results.items():
+        if isinstance(value, np.ndarray):
+            value = np.mean(value)
         print(f'- {metric}: {value}')
 
-def test(obj_embedder, query_embedder, query_field, dimension, test_loader, device):
+def test_loop(obj_embedder, query_embedder, obj_input, query_input, dimension, dl, device):
     gallery_embeddings = []
     query_embeddings = []
-    retriever = FaissRetrieval(dimension=dimension)
+    retriever = FaissRetrieval(dimension=dimension, cpu=True) # Temporarily use CPU to retrieve (avoid OOM)
     
     obj_embedder.eval()
     query_embedder.eval()
@@ -25,16 +29,16 @@ def test(obj_embedder, query_embedder, query_field, dimension, test_loader, devi
     print('- Evaluation started...')
     print('- Extracting embeddings...')
     with torch.no_grad():
-        for step, batch in tqdm(enumerate(test_loader), total=len(test_loader)):
-            g_emb = obj_embedder(batch['object_ims'].to(device))
-            q_emb = query_embedder(batch[query_field].to(device))
+        for step, batch in tqdm(enumerate(dl), total=len(dl)):
+            g_emb = obj_embedder(batch[obj_input].to(device))
+            q_emb = query_embedder(batch[query_input].to(device))
             gallery_embeddings.append(g_emb.detach().cpu().numpy())
             query_embeddings.append(q_emb.detach().cpu().numpy())
             query_ids.extend(batch['query_ids'])
             gallery_ids.extend(batch['gallery_ids'])
             target_ids.extend(batch['gallery_ids'])
 
-    max_k = len(set(gallery_ids))
+    max_k = len(gallery_ids) # retrieve all available gallery items
     query_embeddings = np.concatenate(query_embeddings, axis=0)
     gallery_embeddings = np.concatenate(gallery_embeddings, axis=0)
     print('- Calculating similarity...')
@@ -46,25 +50,17 @@ def test(obj_embedder, query_embedder, query_field, dimension, test_loader, devi
             save_results="temps/query_results.json"
         )
 
-    query_ids = encode_labels(query_ids)
-    target_ids = encode_labels(target_ids)
-    gallery_ids = encode_labels(gallery_ids)
-    max_query = len(set(query_ids))
+    model_labels = np.array(encode_labels(query_ids), dtype=np.int32)
+    rank_matrix = top_k_indexes_all
 
-    rank_matrix = np.zeros((max_query, max_k), dtype=np.int32)
-    for top_k_indexes, query_id in zip(top_k_indexes_all, query_ids):
-        pred_ids = [gallery_ids[i] for i in top_k_indexes] # gallery id
-        rank_matrix[query_id, :] = np.array(pred_ids, dtype=np.int32)
-
-    model_labels = np.arange(len(set(gallery_ids)))
-    query_labels = np.arange(max_query)
+    np.savetxt("temps/rank_matrix.csv", rank_matrix, delimiter=",",fmt='%i')
     print('- Evaluation results:')
-    print_results(evaluate(rank_matrix, model_labels, query_labels))
+    print_results(evaluate(rank_matrix, model_labels, model_labels))
 
 def test_txt():
     from torch.utils.data import DataLoader
-    from dataset import SHREC23_Rings_RenderOnly_TextQuery
-    from models import Base3DObjectRingsExtractor, BertExtractor, MLP
+    from ringnet.dataset import SHREC23_Rings_RenderOnly_TextQuery
+    from ringnet.models import Base3DObjectRingsExtractor, BertExtractor, MLP
     
     batch_size = 4
     latent_dim = 128
@@ -90,8 +86,8 @@ def test_txt():
 
 def test_image():
     from torch.utils.data import DataLoader
-    from dataset import SHREC23_Rings_RenderOnly_ImageQuery
-    from models import Base3DObjectRingsExtractor, ResNetExtractor, MLP
+    from ringnet.dataset import SHREC23_Rings_RenderOnly_ImageQuery
+    from ringnet.models import Base3DObjectRingsExtractor, ResNetExtractor, MLP
     
     batch_size = 4
     latent_dim = 768
@@ -114,5 +110,5 @@ def test_image():
     test(obj_embedder, query_embedder, 'query_ims', latent_dim, dl, device=device)
 
 if __name__ == '__main__':
-    # test_txt()
+    test_txt()
     test_image()
