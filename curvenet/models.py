@@ -237,12 +237,23 @@ def sample_and_group(npoint, radius, nsample, xyz, points, returnfps=False):
         new_xyz: sampled points position data, [B, npoint, nsample, 3]
         new_points: sampled points data, [B, npoint, nsample, 3+D]
     """
-    new_xyz = index_points(xyz, farthest_point_sample(xyz, npoint))
-    torch.cuda.empty_cache()
+    timeout = 10
+    while timeout > 0:
+        new_xyz = index_points(xyz, farthest_point_sample(xyz, npoint))
+        torch.cuda.empty_cache()
 
-    idx = query_ball_point(radius, nsample, xyz, new_xyz)
-    torch.cuda.empty_cache()
-
+        idx = query_ball_point(radius, nsample, xyz, new_xyz)
+        torch.cuda.empty_cache()
+        timeout -= 1
+        if idx.max() < xyz.shape[1]:
+            break
+    if timeout == 0:
+        # replace max with max - 1 to avoid out of range
+        idx[idx == xyz.shape[1]] = xyz.shape[1] - 1
+        # Disclaimer: this is a hack to avoid timeout in sample_and_group
+        # Implementing a better solution is left as an exercise to the reader
+        # raise ValueError('Timeout in sample_and_group')
+    
     new_points = index_points(points, idx)
     torch.cuda.empty_cache()
 
@@ -265,6 +276,7 @@ def query_ball_point(radius, nsample, xyz, new_xyz):
     device = xyz.device
     B, N, C = xyz.shape
     _, S, _ = new_xyz.shape
+
     group_idx = torch.arange(N, dtype=torch.long).to(device).view(1, 1, N).repeat([B, S, 1])
     sqrdists = square_distance(new_xyz, xyz)
     group_idx[sqrdists > radius ** 2] = N
@@ -272,14 +284,15 @@ def query_ball_point(radius, nsample, xyz, new_xyz):
     group_first = group_idx[:, :, 0].view(B, S, 1).repeat([1, 1, nsample])
     mask = group_idx == N
     group_idx[mask] = group_first[mask]
+
     return group_idx
 
 
 class LPFA(nn.Module):
-    def __init__(self, in_channel, out_channel, k, mlp_num=2, initial=False):
+    def __init__(self, in_channel, out_channel, k, device, mlp_num=2, initial=False,):
         super(LPFA, self).__init__()
         self.k = k
-        self.device = torch.device('cuda:0')
+        self.device = device
         self.initial = initial
 
         if not initial:
@@ -380,7 +393,7 @@ class CIC(nn.Module):
 
         self.maxpool = MaskedMaxPool(npoint, radius, k)
 
-        self.lpfa = LPFA(planes, planes, k, mlp_num=mlp_num, initial=False)
+        self.lpfa = LPFA(planes, planes, k, device=device, mlp_num=mlp_num, initial=False)
 
     def forward(self, xyz, x):
  
@@ -547,14 +560,14 @@ curve_config = {
     }
 
 class CurveNet(nn.Module):
-    def __init__(self, device, num_classes=44, k=20, setting='default'):
+    def __init__(self, device, num_classes=2, k=20, setting='default'):
         super(CurveNet, self).__init__()
 
         assert setting in curve_config
 
         additional_channel = 32
         self.device = device
-        self.lpfa = LPFA(9, additional_channel, k=k, mlp_num=1, initial=True)
+        self.lpfa = LPFA(9, additional_channel, device=device, k=k, mlp_num=1, initial=True)
 
         # encoder
         self.cic11 = CIC(npoint=1024, radius=0.05, k=k, in_channels=additional_channel, output_channels=64, bottleneck_ratio=2, mlp_num=1, curve_config=curve_config[setting][0],device=device)
