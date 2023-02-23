@@ -23,15 +23,16 @@ class FaissRetrieval:
     Each pair is a pair of visual and language embeddings. Have a unique id for each pair.
     """
 
-    def __init__(self, dimension=768, **kwargs):
+    def __init__(self, dimension=768, cpu=False, **kwargs):
         # https://github.com/facebookresearch/faiss/wiki/Faiss-indexes
         self.faiss_pool = faiss.IndexFlatIP(dimension)
-        ngpus = faiss.get_num_gpus()
-        if ngpus > 0:
-            self.faiss_pool = faiss.index_cpu_to_all_gpus(self.faiss_pool)
-            print(f"Using {ngpus} gpu to retrieve")
-        else:
-            print("Using CPU to retrieve")
+        if not cpu:
+            ngpus = faiss.get_num_gpus()
+            if ngpus > 0:
+                self.faiss_pool = faiss.index_cpu_to_all_gpus(self.faiss_pool)
+                print(f"Using {ngpus} gpu to retrieve")
+            else:
+                print("Using CPU to retrieve")
         self.faiss_pool.reset()
 
     def similarity_search(self, 
