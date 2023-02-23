@@ -8,6 +8,7 @@ import torch
 from torchvision import transforms as tvtf
 from torch.utils import data
 from torchvision import transforms
+from transformers import AutoTokenizer
 
 
 class SimpleSampler:
@@ -113,19 +114,6 @@ class SHREC23_PointCloudData_ImageQuery(data.Dataset):
         self.skt_root = skt_root
         self.ids = self.csv_data.index
         self.obj_data_path = obj_data_path
-
-        # files = list(obj_data_path.glob("*.obj"))
-        # self.data = {
-        #     file.stem : {
-        #         "verts": read_obj(file)
-        #     }
-        #     for file in files
-        # }
-
-        # if ids is None:    
-        #     ids = self.data.keys()
-
-        # self.ids = ids
         self.render_transforms = tvtf.Compose([
                 tvtf.CenterCrop((352, 352)),
                 tvtf.Resize((224, 224)),
@@ -161,6 +149,53 @@ class SHREC23_PointCloudData_ImageQuery(data.Dataset):
             'gallery_ids': [item['gallery_id'] for item in batch],
             'query_ids': [item['query_id'] for item in batch],
         }
+        return batch
+
+class SHREC23_PointCloudData_TextQuery(data.Dataset):
+    def __init__(self, obj_data_path, csv_data_path, ids=None):
+        self.csv_data = pd.read_csv(csv_data_path)
+        self.ids = self.csv_data.index
+        self.obj_data_path = obj_data_path
+        self.render_transforms = tvtf.Compose([
+                tvtf.CenterCrop((352, 352)),
+                tvtf.Resize((224, 224)),
+                tvtf.ToTensor(),
+                tvtf.Normalize(mean=[0.485, 0.456, 0.406],
+                               std=[0.229, 0.224, 0.225]),
+            ])
+        self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+
+    def __len__(self):
+        return len(self.ids)
+
+    def __getitem__(self, idx):
+        
+        obj_id = self.csv_data.iloc[idx]['obj_id']
+        txt_id = self.csv_data.iloc[idx]['text_id']
+        query_text = self.csv_data.iloc[idx]['tex']
+
+        points = read_obj(os.path.join(self.obj_data_path, obj_id + '.obj'))
+        points = np.array(points)
+        points = default_transforms()(points)
+        
+        return {
+            "pointcloud": points,
+            "query_text": query_text,
+            "gallery_id": obj_id,
+            "query_id": txt_id,
+        }
+    
+    def collate_fn(self, batch):
+        batch = {
+            'pointclouds': torch.stack([item['pointcloud'] for item in batch]),
+            "query_texts": [x['query_text'] for x in batch],
+            'gallery_ids': [item['gallery_id'] for item in batch],
+            'query_ids': [item['query_id'] for item in batch],
+        }
+
+        batch["tokens"] = self.tokenizer.batch_encode_plus(
+            batch["query_texts"], padding="longest", return_tensors="pt"
+        )
         return batch
 
 def DatasetItemInfo(item, indent=0):
