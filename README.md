@@ -3,6 +3,10 @@
 A baseline for the SHREC23 ANIMAR challenge. See the [challenge website](https://aichallenge.hcmus.edu.vn/) for more information.
 We already provide the baseline for [preliminary dataset](https://drive.google.com/file/d/1BYDCPkOa-s30aFUAr0h80N-t-Q7kDupQ/view). Other teams can use this baseline to test their methods on the official dataset.
 
+
+<details>
+<summary>Ringview baseline data preparation</summary>
+
 ## Download raw dataset
 
 Download and extract `dataset.zip`. The example uses `gdown` to download the file from Google Drive. You can install it with `pip install gdown`. 
@@ -95,9 +99,9 @@ where
 - `rid`: a number (default: 0-6) as ring identifier
 - `type`: `depth`, `mask`, or `render`
 - `####`: a number (with leading 0s, default: 0001-0012) as view identifier
+</details>
 
 ## Training
-
 ### Install dependencies
 Before running the baseline, you may need to install the dependencies. We recommend using a virtual environment. 
 
@@ -109,14 +113,15 @@ $ conda env create -f animar.yml
 $ conda activate animar
 ```
 
-We provide 2 baselines corresponding to the 2 tasks of the challenge.
-The first baseline is for the sketch query task and second one is for the text query task. For more details, see the implemented [models](models).
+We provide 2 baselines corresponding to 2 feature representation approaches. Each baseline is implemented for both sketch query and text query tasks.For more details, see the implemented [ringnet extractor](ringnet/models.py) and [curvenet extractor](curvenet/models.py).
 
-To train the baseline, run the following command:
+To experiment with the baseline, you can run the following commands. There are 4 baselines are provided: 
 
 ```bash
-$ python train_sketch_query.py
-$ python train_prompt_query.py
+$ python train_prompt_pcl.py
+$ python train_sketch_pcl.py
+$ python train_prompt_ringview.py
+$ python train_sketch_ringview.py
 ```
 
 
