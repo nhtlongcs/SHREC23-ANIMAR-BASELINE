@@ -25,7 +25,6 @@ def evaluate(rank_matrix: np.ndarray, model_label: np.ndarray, image_label: np.n
         max_match = np.sum(model_label == image_label[i])
         r_points = np.zeros(max_match)
         G_sum = np.cumsum(np.int8(rel_matrix[i]))
-
         for j in range(max_match):
             r_points[j] = np.where(G_sum == (j+1))[0][0] + 1
         r_points_int = np.array(r_points, dtype=int)
