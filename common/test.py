@@ -12,8 +12,6 @@ def encode_labels(labels):
 
 def print_results(results):
     for metric, value in results.items():
-        if isinstance(value, np.ndarray):
-            value = np.mean(value)
         print(f'- {metric}: {value}')
 
 def test_loop(obj_embedder, query_embedder, obj_input, query_input, dimension, dl, device):
