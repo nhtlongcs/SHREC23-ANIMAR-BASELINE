@@ -41,9 +41,12 @@ def evaluate(rank_matrix: np.ndarray, model_label: np.ndarray, image_label: np.n
     p10 = np.mean(rel_matrix[:, :10])
 
     logf = np.log2(1 + np.arange(1, top_k + 1))[np.newaxis, :]  # reduction factor for DCG
-    dcg = np.sum(rel_matrix / logf, axis=-1)
-    idcg = np.sum(1 / logf)
-    ndcg = dcg / idcg
+    dcg = np.sum(rel_matrix / logf, axis=-1)        # (num_queries, )
+    idcg = np.zeros((num_query, num_retrieval))
+    for i in range(num_query):
+        idcg[i, :np.sum(rel_matrix[i])] = 1
+    idcg = np.sum(idcg / logf, axis=-1)
+    ndcg = np.mean(dcg / idcg)
 
     pre = np.mean(precision, axis=0)
     rec = np.mean(recall, axis=0)
@@ -65,8 +68,8 @@ def evaluate(rank_matrix: np.ndarray, model_label: np.ndarray, image_label: np.n
 
 
 def main():
-    print(evaluate(np.array([[0, 1, 2]]), np.array([-2, -1, -2]), np.array([-2])))
-
+    print(evaluate(np.array([[0, 2, 1, 3], [3, 0, 1, 2]]), np.array([-2, -1, -2, -3]), np.array([-2, -3])))
+    print(evaluate(np.array([[0, 2, 1, 3], [0, 3, 1, 2]]), np.array([-2, -1, -2, -3]), np.array([-2, -3])))
 
 if __name__ == "__main__":
     main()
