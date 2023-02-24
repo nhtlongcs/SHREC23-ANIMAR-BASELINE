@@ -3,10 +3,6 @@
 A baseline for the SHREC23 ANIMAR challenge. See the [challenge website](https://aichallenge.hcmus.edu.vn/) for more information.
 We already provide the baseline for [preliminary dataset](https://drive.google.com/file/d/1BYDCPkOa-s30aFUAr0h80N-t-Q7kDupQ/view). Other teams can use this baseline to test their methods on the official dataset.
 
-
-<details>
-<summary>Ringview baseline data preparation</summary>
-
 ## Download raw dataset
 
 Download and extract `dataset.zip`. The example uses `gdown` to download the file from Google Drive. You can install it with `pip install gdown`. 
@@ -63,6 +59,10 @@ id,obj_filename,sket_filename,tex
 │  │  │  ├─ *Train.csv
 ├─ ...
 ```
+
+<details>
+<summary>Ringview baseline data preparation</summary>
+
 ## Capture ringview images
 
 We provide a script to capture the ring views images. The script uses Blender to render the images.
@@ -124,4 +124,15 @@ $ python train_prompt_ringview.py
 $ python train_sketch_ringview.py
 ```
 
+## FAQ 
+
+<details>
+<summary>ModuleNotfoundError when trying to import module from imported package</summary>
+The problem is that the current working directory is not in the python path. You can fix this by adding PYTHONPATH to the environment variables. 
+
+```bash
+$ PYTHONPATH=$(pwd) python tests/test.py
+```
+
+</details>
 
