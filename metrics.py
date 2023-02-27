@@ -70,27 +70,7 @@ def evaluate(rank_matrix: np.ndarray, model_label: np.ndarray, image_label: np.n
         # "auc": auc_
     }
 
-def evaluate_submission(csv_path: os.PathLike, gt_path: os.PathLike, test_path: os.PathLike, subset_path: os.PathLike):
-    """Runs evaluation for codalab. Works for both SketchANIMAR and TextANIMAR.
-
-    Args:
-        csv_path (os.PathLike): Path to submission csv
-        gt_path (os.PathLike): Path to groundtruth csv
-        test_path (os.PathLike): Path to query list csv
-        subset_path (os.PathLike): Path to train/test subset csv
-
-    Returns:
-        tuple: a tuple of the metrics in order: NN, P@10, NDCG, mAP
-    """
-    gt = pd.read_csv(gt_path, sep=None, engine='python')
-
-    text_col = gt["Text Query ID"] if "Text Query ID" in gt.columns else gt["Sketch Query ID"]
-    model_col = gt["Model ID"]
-    text_ids = list(set(text_col))
-    model_ids = list(set(model_col))
-    num_tot_queries = len(text_ids)
-    num_models = len(model_ids)
-
+def get_labels(text_ids: list[str], model_ids: list[str], edges: list[tuple[str, str]]):
     labels = {}
     parent = {}
 
@@ -107,26 +87,50 @@ def evaluate_submission(csv_path: os.PathLike, gt_path: os.PathLike, test_path: 
         if x != y:
             parent[y] = x
 
-    for text_id, model_id in zip(text_col, model_col):
+    for text_id, model_id in edges:
         join(text_id, model_id)
 
     counter = 0
-    for text_id in filter(lambda x: x not in parent, text_col):
+    for text_id in [x for x in text_ids + model_ids if x not in parent]:
         labels[text_id] = counter
         counter += 1
-    for id in [x for x in text_col if x in parent] + model_ids:
+    for id in [x for x in text_ids + model_ids if x in parent]:
         labels[id] = labels[get_parent(id)]
 
-    edges = set(zip(text_col, model_col))
+    # data check
+    edges = set(edges)
     for text_id in text_ids:
         for model_id in model_ids:
             if labels[text_id] == labels[model_id]:
                 assert (text_id, model_id) in edges
 
-    # get the order of the queries
-    query_df = pd.read_csv(test_path)
-    query_list_all = query_df["ID"]
-    assert len(query_list_all) == num_tot_queries
+    return labels
+
+def evaluate_submission(csv_path: os.PathLike, gt_path: os.PathLike, query_path: os.PathLike, model_path: os.PathLike, subset_path: os.PathLike):
+    """Runs evaluation for codalab. Works for both SketchANIMAR and TextANIMAR.
+
+    Args:
+        csv_path (os.PathLike): Path to submission csv
+        gt_path (os.PathLike): Path to groundtruth csv
+        query_path (os.PathLike): Path to query list csv
+        model_path (os.PathLike): Path to model list csv
+        subset_path (os.PathLike): Path to train/test subset csv
+
+    Returns:
+        tuple: a tuple of the metrics in order: NN, P@10, NDCG, mAP
+    """
+    gt = pd.read_csv(gt_path, sep=None, engine='python')
+
+    text_col = gt["Text Query ID"] if "Text Query ID" in gt.columns else gt["Sketch Query ID"]
+    model_col = gt["Model ID"]
+
+    # read all queries and models
+    text_ids = pd.read_csv(query_path)["ID"].tolist()
+    model_ids = pd.read_csv(model_path)["ID"].tolist()
+    
+    num_tot_queries = len(text_ids)
+    num_models = len(model_ids)
+    labels = get_labels(text_ids, model_ids, list(zip(text_col, model_col)))
 
     # read the submission
     submission = pd.read_csv(csv_path, sep=None, engine='python', header=None)
@@ -135,37 +139,45 @@ def evaluate_submission(csv_path: os.PathLike, gt_path: os.PathLike, test_path: 
         print(message)
         return (0, 0, 0, 0)
 
-    if len(submission) != num_tot_queries or len(submission.columns) != num_models:
-        return return_error(f"Submission must have shape (num_queries, num_models)! \n"
-                            f"Expected ({num_tot_queries}, {num_models}), got ({submission.size}, {len(submission.columns)})")
+    if len(submission) != num_tot_queries or len(submission.columns) != num_models + 1:
+        return return_error(f"Submission must have shape (num_queries, num_models + 1)! \n"
+                            f"Expected ({num_tot_queries}, {num_models + 1}), got ({len(submission)}, {len(submission.columns)})")
     
-    id_matrix = submission.to_numpy()
-    for row in id_matrix:
-        if np.unique(row).size != row.size:
+    submission = submission.to_numpy()
+    ranklist = {}
+    for row in submission:
+        if np.unique(row[1:]).size != row.size - 1:
             return return_error("List of IDs for a query must be unique!")
+        ranklist[row[0]] = row[1:]
         
     # read split
     subset = set(pd.read_csv(subset_path)["ID"])
     num_queries = len(subset)
-    assert len([x for x in query_list_all if x in subset]) == len(subset)
+    assert len([x for x in text_ids if x in subset]) == len(subset)
 
     model_order = {id:idx for idx, id in enumerate(model_ids)}
+    model_labels = np.array([labels[x] for x in model_order.keys()], dtype=np.int64)
     rank_matrix = np.zeros((num_queries, num_models), dtype=np.int64)
     query_labels = np.zeros((num_queries, ), dtype=np.int64)
-    
-    for i, j in enumerate(j for j, x in enumerate(query_list_all) if x in subset):
+
+    print(submission.shape)
+    print(query_labels.shape)
+
+    for i, query_id in enumerate(subset):
+        row = ranklist[query_id]
         try:
-            rank_matrix[i] = [model_order[x] for x in id_matrix[j]]
-            query_labels[i] = labels[query_list_all[j]]
+            query_labels[i] = labels[query_id]
+        except KeyError as err:
+            return return_error(f"Query ID {err} does not exist!")
+        try:
+            rank_matrix[i] = [model_order[x] for x in row]
         except KeyError as err:
             return return_error(f"Model ID {err} does not exist!")
-
-    model_labels = np.array([labels[x] for x in model_order.keys()], dtype=np.int64)
 
     return tuple(evaluate(rank_matrix, model_labels, query_labels).values())
 
 def main():
-    print(evaluate_submission("sample_submission.csv", "SketchQuery_GT_Train.csv", "SketchQuery_Train.csv", "SketchQueryID_TrainTrain.csv"))
+    print(evaluate_submission("sample_submission.csv", "SketchQuery_GT_Train.csv", "SketchQuery_Train.csv", "References.csv", "SketchQueryID_TrainTrain.csv"))
 
 if __name__ == "__main__":
     main()
